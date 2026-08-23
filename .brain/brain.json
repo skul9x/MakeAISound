@@ -1,0 +1,67 @@
+{
+  "meta": {
+    "schema_version": "1.1.0",
+    "awf_version": "4.0.2",
+    "updated_at": "2026-08-23T15:41:30Z"
+  },
+  "project": {
+    "name": "MakeAiSound",
+    "type": "Android App (Native Kotlin + Jetpack Compose + ONNX Neural TTS)",
+    "status": "Completed",
+    "description": "Commercial-grade Android offline Text-to-Speech Studio application with VieNeu-TTS v3 Turbo FP32 neural engine, 48kHz WAV audio export, responsive player, telemetry diagnostics, and dark tech OLED UI."
+  },
+  "tech_stack": {
+    "platform": "Android 7.0+ (API 24 - 36)",
+    "language": "Kotlin 2.0.21",
+    "ui_framework": "Jetpack Compose BOM + Material Design 3",
+    "inference_engine": "Microsoft ONNX Runtime Android 1.20.0 (XNNPACK multi-threading)",
+    "audio_format": "48,000 Hz, 16-bit Mono Lossless PCM RIFF WAV",
+    "phonemizer": "Rust NDK sea-g2p native libraries (arm64-v8a, armeabi-v7a, x86_64, x86)",
+    "storage": "Android MediaStore API (Music/MakeAiSound) + FileProvider",
+    "target_device_profile": "OnePlus 13R (Snapdragon 8 Gen 3, 120Hz ProXDR, Dark OLED)"
+  },
+  "architecture_modules": [
+    {
+      "name": "engine",
+      "package": "skul9x.example.makesound.engine",
+      "description": "Neural inference engine, G2P phonemizer, VieNeu tokenizer, smart text segmentation, emotion tokens, repetition history, and cache tensor pool."
+    },
+    {
+      "name": "player",
+      "package": "skul9x.example.makesound.player",
+      "description": "Audio player manager with 50ms smooth coroutine polling, MediaPlayer abstraction adapter, waveform sampler, and progress tracker."
+    },
+    {
+      "name": "storage",
+      "package": "skul9x.example.makesound.storage",
+      "description": "Streaming lossless WAV encoder/decoder (RIFF 44-byte header) and MediaStore file storage manager."
+    },
+    {
+      "name": "ui",
+      "package": "skul9x.example.makesound.ui",
+      "description": "Compose Dark OLED Studio theme, Main Studio screen, Voice Selection bottom sheet, scrollbar indicators, waveform visualizer, and diagnostic log bottom sheet."
+    },
+    {
+      "name": "telemetry",
+      "package": "skul9x.example.makesound.telemetry",
+      "description": "Circular memory log buffer, stage latency breakdowns (G2P, Prefill, Decode, Codec), real-time RTF tracking, and memory profiling."
+    }
+  ],
+  "features": [
+    "Offline on-device Vietnamese Text-to-Speech synthesis with 8 expressively tuned voice presets.",
+    "Full support for inline emotion tags ([chuckle]/[cười], [sigh]/[thở dài], [clear throat]/[hắng giọng]) and <en> English phonetic preservation.",
+    "Lossless 48kHz WAV audio export directly to device public Music/MakeAiSound storage with Share Sheet integration.",
+    "Full-featured audio studio player with precision seek bar scrubber, dynamic 40-bar waveform visualization, play/pause/replay controls, and 50ms polling.",
+    "Circular diagnostic log buffer with real-time RTF (Real-Time Factor) and stage latency metrics.",
+    "Custom fluid scrollbar indicators across all scrollable Compose containers.",
+    "OLED Dark Tech launcher icon with adaptive, round, and monochrome Material You theming support."
+  ],
+  "knowledge_items": {
+    "conventions": [
+      "Keep VieNeu neural inference in FP32 precision with XNNPACK multi-threading for audio fidelity without quantized artifacts.",
+      "Manage ONNX OnnxJava OrtSession, OrtEnvironment, and OnnxTensor instances with explicit close() lifecycle calls to avoid native heap leaks.",
+      "Retain key/value cache tensor direct float byte buffers inside CacheTensorPool to eliminate per-step GC allocations.",
+      "Use streaming chunk-based FileInputStream in WavWriter to prevent 2x heap buffer spikes when reading large WAV files."
+    ]
+  }
+}

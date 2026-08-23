@@ -3,6 +3,8 @@ package skul9x.example.makesound.ui
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.CancellationException
@@ -83,23 +85,63 @@ open class MakeAiSoundViewModel(
     }
 
     fun setAvailableVoices(voices: List<VoicePreset>) {
+        val defaultPreset = voices.find { it.name == VoicePresets.defaultVoiceName } ?: voices.firstOrNull()
         _uiState.update { current ->
             current.copy(
                 availableVoices = voices,
-                selectedVoice = current.selectedVoice ?: voices.firstOrNull()
+                selectedVoice = current.selectedVoice ?: defaultPreset
             )
         }
     }
 
+    fun onTextFieldValueChange(newValue: TextFieldValue) {
+        val trimmedText = if (newValue.text.length > 5000) newValue.text.take(5000) else newValue.text
+        val finalSelection = if (newValue.text.length > 5000) {
+            val start = newValue.selection.start.coerceIn(0, trimmedText.length)
+            val end = newValue.selection.end.coerceIn(0, trimmedText.length)
+            TextRange(start, end)
+        } else {
+            newValue.selection
+        }
+        _uiState.update { it.copy(textFieldValue = newValue.copy(text = trimmedText, selection = finalSelection)) }
+    }
+
     fun onTextChanged(newText: String) {
         val trimmed = if (newText.length > 5000) newText.take(5000) else newText
-        _uiState.update { it.copy(text = trimmed) }
+        _uiState.update {
+            it.copy(
+                textFieldValue = TextFieldValue(
+                    text = trimmed,
+                    selection = TextRange(trimmed.length)
+                )
+            )
+        }
     }
 
     fun onPasteFromClipboard(pastedText: String) {
-        val current = _uiState.value.text
-        val combined = if (current.isEmpty()) pastedText else "$current $pastedText"
-        onTextChanged(combined)
+        val currentTfv = _uiState.value.textFieldValue
+        val currentText = currentTfv.text
+        val start = currentTfv.selection.min.coerceIn(0, currentText.length)
+        val end = currentTfv.selection.max.coerceIn(0, currentText.length)
+
+        val before = currentText.substring(0, start)
+        val after = currentText.substring(end)
+        val inserted = if (before.isNotEmpty() && !before.endsWith(" ") && !pastedText.startsWith(" ")) {
+            " $pastedText"
+        } else {
+            pastedText
+        }
+        val newText = before + inserted + after
+        val trimmed = if (newText.length > 5000) newText.take(5000) else newText
+        val newCursor = (start + inserted.length).coerceIn(0, trimmed.length)
+        _uiState.update {
+            it.copy(
+                textFieldValue = TextFieldValue(
+                    text = trimmed,
+                    selection = TextRange(newCursor)
+                )
+            )
+        }
     }
 
     fun readClipboardAndPaste(context: Context) {
@@ -132,20 +174,33 @@ open class MakeAiSoundViewModel(
     }
 
     fun onClearText() {
-        _uiState.update { it.copy(text = "") }
+        _uiState.update { it.copy(textFieldValue = TextFieldValue("")) }
     }
 
     fun insertEmotionTag(tag: String) {
-        val current = _uiState.value.text
+        val currentTfv = _uiState.value.textFieldValue
+        val text = currentTfv.text
         val formatted = if (tag.startsWith("[") && tag.endsWith("]")) tag else "[$tag]"
-        val newText = if (current.isEmpty()) {
-            "$formatted "
-        } else if (current.endsWith(" ")) {
-            "$current$formatted "
-        } else {
-            "$current $formatted "
+        val tagWithSpace = "$formatted "
+
+        val start = currentTfv.selection.min.coerceIn(0, text.length)
+        val end = currentTfv.selection.max.coerceIn(0, text.length)
+
+        val before = text.substring(0, start)
+        val after = text.substring(end)
+
+        val newText = before + tagWithSpace + after
+        val trimmed = if (newText.length > 5000) newText.take(5000) else newText
+        val newCursor = (start + tagWithSpace.length).coerceIn(0, trimmed.length)
+
+        _uiState.update {
+            it.copy(
+                textFieldValue = TextFieldValue(
+                    text = trimmed,
+                    selection = TextRange(newCursor)
+                )
+            )
         }
-        onTextChanged(newText)
     }
 
     fun onVoiceSelected(preset: VoicePreset) {
@@ -160,6 +215,29 @@ open class MakeAiSoundViewModel(
 
     fun setVoiceFilter(filter: VoiceFilter) {
         _uiState.update { it.copy(selectedVoiceFilter = filter) }
+    }
+
+    fun setRegionFilter(filter: RegionFilter) {
+        _uiState.update { it.copy(selectedRegionFilter = filter) }
+    }
+
+    fun setGenderFilter(filter: GenderFilter) {
+        _uiState.update { it.copy(selectedGenderFilter = filter) }
+    }
+
+    fun setStyleFilter(filter: StyleFilter) {
+        _uiState.update { it.copy(selectedStyleFilter = filter) }
+    }
+
+    fun resetVoiceFilters() {
+        _uiState.update {
+            it.copy(
+                selectedRegionFilter = RegionFilter.ALL,
+                selectedGenderFilter = GenderFilter.ALL,
+                selectedStyleFilter = StyleFilter.ALL,
+                selectedVoiceFilter = VoiceFilter.ALL
+            )
+        }
     }
 
     fun showVoicePicker(show: Boolean) {

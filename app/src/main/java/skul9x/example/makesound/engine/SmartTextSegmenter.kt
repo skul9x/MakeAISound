@@ -322,7 +322,7 @@ object SmartTextSegmenter {
     private val DIV_CLOSE_REGEX = Regex("(?i)</div>")
     private val LI_CLOSE_REGEX = Regex("(?i)</li>")
     private val TR_CLOSE_REGEX = Regex("(?i)</tr>")
-    private val HTML_TAG_EXCEPT_EN_REGEX = Regex("(?i)<(?!(?:/)?en\\b)[^>]+>")
+    private val HTML_TAG_EXCEPT_EN_REGEX = Regex("(?i)<(?!(?:/)?(?:en\\b|\\|emotion_\\d+\\|>))[^>]+>")
     private val NEWLINES_REGEX = Regex("\n+")
     private val CLAUSE_SPLIT_REGEX = Regex("(?<=[,;:—–-])\\s+|(?<=[—–])(?=[^\\s])")
     private val WHITESPACE_REGEX = Regex("\\s+")

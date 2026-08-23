@@ -38,7 +38,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import skul9x.example.makesound.ui.theme.ElectricCyan
@@ -55,16 +57,18 @@ import java.util.Locale
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun TextStudioCard(
-    text: String,
+    textFieldValue: TextFieldValue,
     charCount: Int,
     estimatedDurationSec: Double,
-    onTextChanged: (String) -> Unit,
+    onTextFieldValueChange: (TextFieldValue) -> Unit,
     onPasteClick: () -> Unit,
     onCopyClick: () -> Unit,
     onClearClick: () -> Unit,
     onEmotionTagClick: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val text = textFieldValue.text
+
     Card(
         modifier = modifier
             .fillMaxWidth()
@@ -147,8 +151,8 @@ fun TextStudioCard(
 
             // Multi-line Text Field
             OutlinedTextField(
-                value = text,
-                onValueChange = onTextChanged,
+                value = textFieldValue,
+                onValueChange = onTextFieldValueChange,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(160.dp),
@@ -257,4 +261,29 @@ fun TextStudioCard(
             }
         }
     }
+}
+
+@Composable
+fun TextStudioCard(
+    text: String,
+    charCount: Int,
+    estimatedDurationSec: Double,
+    onTextChanged: (String) -> Unit,
+    onPasteClick: () -> Unit,
+    onCopyClick: () -> Unit,
+    onClearClick: () -> Unit,
+    onEmotionTagClick: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    TextStudioCard(
+        textFieldValue = TextFieldValue(text = text, selection = TextRange(text.length)),
+        charCount = charCount,
+        estimatedDurationSec = estimatedDurationSec,
+        onTextFieldValueChange = { onTextChanged(it.text) },
+        onPasteClick = onPasteClick,
+        onCopyClick = onCopyClick,
+        onClearClick = onClearClick,
+        onEmotionTagClick = onEmotionTagClick,
+        modifier = modifier
+    )
 }

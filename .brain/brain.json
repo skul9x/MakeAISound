@@ -2,12 +2,12 @@
   "meta": {
     "schema_version": "1.1.0",
     "awf_version": "4.0.2",
-    "updated_at": "2026-08-23T15:41:30Z"
+    "updated_at": "2026-08-23T15:59:30Z"
   },
   "project": {
     "name": "MakeAiSound",
     "type": "Android App (Native Kotlin + Jetpack Compose + ONNX Neural TTS)",
-    "status": "Completed",
+    "status": "In Progress (Enhancements & Bug Fixes)",
     "description": "Commercial-grade Android offline Text-to-Speech Studio application with VieNeu-TTS v3 Turbo FP32 neural engine, 48kHz WAV audio export, responsive player, telemetry diagnostics, and dark tech OLED UI."
   },
   "tech_stack": {
@@ -24,7 +24,7 @@
     {
       "name": "engine",
       "package": "skul9x.example.makesound.engine",
-      "description": "Neural inference engine, G2P phonemizer, VieNeu tokenizer, smart text segmentation, emotion tokens, repetition history, and cache tensor pool."
+      "description": "Neural inference engine, G2P phonemizer with emotion cue preservation, VieNeu tokenizer, smart text segmentation, emotion tokens, repetition history, and cache tensor pool."
     },
     {
       "name": "player",
@@ -39,7 +39,7 @@
     {
       "name": "ui",
       "package": "skul9x.example.makesound.ui",
-      "description": "Compose Dark OLED Studio theme, Main Studio screen, Voice Selection bottom sheet, scrollbar indicators, waveform visualizer, and diagnostic log bottom sheet."
+      "description": "Compose Dark OLED Studio theme, Main Studio screen, Multi-tier Voice Selection bottom sheet, scrollbar indicators, waveform visualizer, and diagnostic log bottom sheet."
     },
     {
       "name": "telemetry",
@@ -48,10 +48,12 @@
     }
   ],
   "features": [
-    "Offline on-device Vietnamese Text-to-Speech synthesis with 8 expressively tuned voice presets.",
-    "Full support for inline emotion tags ([chuckle]/[cười], [sigh]/[thở dài], [clear throat]/[hắng giọng]) and <en> English phonetic preservation.",
-    "Lossless 48kHz WAV audio export directly to device public Music/MakeAiSound storage with Share Sheet integration.",
+    "Offline on-device Vietnamese Text-to-Speech synthesis with 20 curated voice presets defaulting to 'Ngọc Huyền'.",
+    "Multi-tier voice filtering across Region (Bắc/Trung/Nam), Gender (Nữ/Nam), and Style (Tự nhiên/Kể chuyện/Tin tức).",
+    "Full support for inline non-verbal emotion tags ([chuckle]/[cười], [sigh]/[thở dài], [clear throat]/[hắng giọng]) via special token preservation and <en> English phonetic preservation.",
+    "Lossless 48kHz WAV audio export directly to device public Music/MakeAiSound storage.",
     "Full-featured audio studio player with precision seek bar scrubber, dynamic 40-bar waveform visualization, play/pause/replay controls, and 50ms polling.",
+    "Smart text editor with cursor-aware emotion tag insertion.",
     "Circular diagnostic log buffer with real-time RTF (Real-Time Factor) and stage latency metrics.",
     "Custom fluid scrollbar indicators across all scrollable Compose containers.",
     "OLED Dark Tech launcher icon with adaptive, round, and monochrome Material You theming support."
@@ -61,7 +63,8 @@
       "Keep VieNeu neural inference in FP32 precision with XNNPACK multi-threading for audio fidelity without quantized artifacts.",
       "Manage ONNX OnnxJava OrtSession, OrtEnvironment, and OnnxTensor instances with explicit close() lifecycle calls to avoid native heap leaks.",
       "Retain key/value cache tensor direct float byte buffers inside CacheTensorPool to eliminate per-step GC allocations.",
-      "Use streaming chunk-based FileInputStream in WavWriter to prevent 2x heap buffer spikes when reading large WAV files."
+      "Use streaming chunk-based FileInputStream in WavWriter to prevent 2x heap buffer spikes when reading large WAV files.",
+      "Preserve emotion tags as `<|emotion_k|>` special tokens during G2P phonemization rather than letting SeaG2P spell them out as literal words."
     ]
   }
 }

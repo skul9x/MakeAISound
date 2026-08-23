@@ -137,9 +137,9 @@ class VieNeuTokenizer(
     companion object {
         // Non-verbal emotion cue mapping
         val EMOTION_TAG_TO_K = mapOf(
-            "chuckle" to 1, "cười" to 1, "cuoi" to 1,
+            "chuckle" to 1, "cười" to 1, "cuoi" to 1, "laugh" to 1, "laughter" to 1,
             "sigh" to 2, "thở dài" to 2, "tho dai" to 2,
-            "clear throat" to 3, "hắng giọng" to 3, "hang giong" to 3
+            "clear throat" to 3, "clearthroat" to 3, "hắng giọng" to 3, "hang giong" to 3
         )
 
         private val EMOTION_SPLIT_REGEX = Regex("""(\[[^\]]+\]|<\|emotion_\d+\|>)""")

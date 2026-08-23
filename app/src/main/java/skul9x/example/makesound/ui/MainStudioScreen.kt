@@ -125,10 +125,10 @@ fun MainStudioScreen(
             ) {
                 // 1. Text Studio Editor Card
                 TextStudioCard(
-                    text = uiState.text,
+                    textFieldValue = uiState.textFieldValue,
                     charCount = uiState.charCount,
                     estimatedDurationSec = uiState.estimatedDurationSeconds,
-                    onTextChanged = { viewModel.onTextChanged(it) },
+                    onTextFieldValueChange = { viewModel.onTextFieldValueChange(it) },
                     onPasteClick = { viewModel.readClipboardAndPaste(context) },
                     onCopyClick = { viewModel.copyTextToClipboard(context) },
                     onClearClick = { viewModel.onClearText() },
@@ -160,8 +160,7 @@ fun MainStudioScreen(
                         },
                         onReplay = { viewModel.replayAudio() },
                         onSeek = { fraction -> viewModel.seekToFraction(fraction) },
-                        onSaveToStorage = { viewModel.exportToStorage(context) },
-                        onShareAudio = { viewModel.shareAudio(context) }
+                        onSaveToStorage = { viewModel.exportToStorage(context) }
                     )
                 }
 
@@ -176,8 +175,13 @@ fun MainStudioScreen(
             sheetState = voicePickerSheetState,
             voices = uiState.filteredVoices,
             selectedVoice = uiState.selectedVoice,
-            selectedFilter = uiState.selectedVoiceFilter,
-            onFilterSelected = { viewModel.setVoiceFilter(it) },
+            selectedRegionFilter = uiState.selectedRegionFilter,
+            selectedGenderFilter = uiState.selectedGenderFilter,
+            selectedStyleFilter = uiState.selectedStyleFilter,
+            onRegionFilterSelected = { viewModel.setRegionFilter(it) },
+            onGenderFilterSelected = { viewModel.setGenderFilter(it) },
+            onStyleFilterSelected = { viewModel.setStyleFilter(it) },
+            onResetFilters = { viewModel.resetVoiceFilters() },
             onVoiceSelected = { viewModel.onVoiceSelected(it) },
             onDismiss = { viewModel.showVoicePicker(false) }
         )

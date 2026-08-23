@@ -121,7 +121,7 @@ class VieNeuStudioSynthesizer(
 
             // 2. G2P Phonemization
             val g2pStart = System.currentTimeMillis()
-            val phonemes = SeaG2P.phonemize(chunkText)
+            val phonemes = SeaG2P.phonemizeWithEmotions(chunkText)
             val g2pDuration = System.currentTimeMillis() - g2pStart
             val phonemeCount = phonemes.length
 

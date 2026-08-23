@@ -125,7 +125,7 @@ data class VoicePreset(
  */
 object VoicePresets {
     private val presetsMap = ConcurrentHashMap<String, VoicePreset>()
-    var defaultVoiceName: String = "Trúc Ly"
+    var defaultVoiceName: String = "Ngọc Huyền"
 
     val availableVoices: List<String>
         get() = presetsMap.keys.toList()

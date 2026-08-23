@@ -2,11 +2,10 @@ package skul9x.example.makesound.ui.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -17,6 +16,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Assessment
@@ -43,8 +43,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import skul9x.example.makesound.telemetry.LogLevel
@@ -67,7 +71,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DiagnosticsLogBottomSheet(
     sheetState: SheetState,
@@ -192,9 +196,13 @@ fun DiagnosticsLogBottomSheet(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                FlowRow(
+                val filterScrollState = rememberScrollState()
+                Row(
+                    modifier = Modifier
+                        .weight(1f)
+                        .horizontalScroll(filterScrollState),
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
                     listOf("ALL", "SYNTHESIS", "STORAGE", "ERROR").forEach { filter ->
                         val isSelected = filter.equals(logFilter, ignoreCase = true)
@@ -226,7 +234,9 @@ fun DiagnosticsLogBottomSheet(
                     }
                 }
 
-                Row {
+                Spacer(modifier = Modifier.width(4.dp))
+
+                Row(verticalAlignment = Alignment.CenterVertically) {
                     IconButton(onClick = onCopyLogs) {
                         Icon(
                             imageVector = Icons.Default.ContentCopy,
@@ -273,50 +283,62 @@ fun DiagnosticsLogBottomSheet(
                     }
                 } else {
                     items(logs, key = { it.id }) { log ->
-                        val timeStr = SimpleDateFormat("HH:mm:ss.SSS", Locale.US).format(Date(log.timestamp))
-                        val levelColor = when (log.level) {
-                            LogLevel.DEBUG -> TextMuted
-                            LogLevel.INFO -> InfoBlue
-                            LogLevel.WARN -> WarningAmber
-                            LogLevel.ERROR -> ErrorRed
-                        }
-
-                        Row(modifier = Modifier.fillMaxWidth()) {
-                            Text(
-                                text = "[$timeStr] ",
-                                color = TextMuted,
-                                style = MaterialTheme.typography.labelSmall,
-                                fontFamily = FontFamily.Monospace,
-                                fontSize = 10.sp
-                            )
-                            Text(
-                                text = "[${log.level.name}] ",
-                                color = levelColor,
-                                style = MaterialTheme.typography.labelSmall,
-                                fontFamily = FontFamily.Monospace,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 10.sp
-                            )
-                            Text(
-                                text = "[${log.tag}] ",
-                                color = ElectricCyan,
-                                style = MaterialTheme.typography.labelSmall,
-                                fontFamily = FontFamily.Monospace,
-                                fontSize = 10.sp
-                            )
-                            Text(
-                                text = log.message,
-                                color = TextPrimary,
-                                style = MaterialTheme.typography.labelSmall,
-                                fontFamily = FontFamily.Monospace,
-                                fontSize = 10.sp
-                            )
-                        }
+                        val annotatedText = buildAnnotatedLogEntry(log)
+                        Text(
+                            text = annotatedText,
+                            modifier = Modifier.fillMaxWidth()
+                        )
                     }
                 }
             }
         }
     }
+}
+
+/**
+ * Builds an [AnnotatedString] for monospace console log display,
+ * preventing individual Text item layout squeezing and ensuring clean word wrapping.
+ */
+fun buildAnnotatedLogEntry(
+    log: StudioLogEntry,
+    timeColor: Color = TextMuted,
+    tagColor: Color = ElectricCyan,
+    textColor: Color = TextPrimary,
+    debugColor: Color = TextMuted,
+    infoColor: Color = InfoBlue,
+    warnColor: Color = WarningAmber,
+    errorColor: Color = ErrorRed
+): AnnotatedString {
+    val timeStr = SimpleDateFormat("HH:mm:ss.SSS", Locale.US).format(Date(log.timestamp))
+    val levelColor = when (log.level) {
+        LogLevel.DEBUG -> debugColor
+        LogLevel.INFO -> infoColor
+        LogLevel.WARN -> warnColor
+        LogLevel.ERROR -> errorColor
+    }
+
+    return buildAnnotatedString {
+        withStyle(SpanStyle(color = timeColor, fontFamily = FontFamily.Monospace, fontSize = 10.sp)) {
+            append("[$timeStr] ")
+        }
+        withStyle(SpanStyle(color = levelColor, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, fontSize = 10.sp)) {
+            append("[${log.level.name}] ")
+        }
+        withStyle(SpanStyle(color = tagColor, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Medium, fontSize = 10.sp)) {
+            append("[${log.tag}] ")
+        }
+        withStyle(SpanStyle(color = textColor, fontFamily = FontFamily.Monospace, fontSize = 10.sp)) {
+            append(log.message)
+        }
+    }
+}
+
+/**
+ * Formats a plain string representation of a log entry for copy/export operations.
+ */
+fun formatPlainLogEntry(log: StudioLogEntry): String {
+    val timeStr = SimpleDateFormat("HH:mm:ss.SSS", Locale.US).format(Date(log.timestamp))
+    return "[$timeStr] [${log.level.name}] [${log.tag}] ${log.message}"
 }
 
 @Composable

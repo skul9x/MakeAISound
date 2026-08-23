@@ -1,5 +1,6 @@
 package skul9x.example.makesound.ui
 
+import androidx.compose.ui.text.input.TextFieldValue
 import skul9x.example.makesound.engine.SynthesizedAudioResult
 import skul9x.example.makesound.engine.VoicePreset
 import skul9x.example.makesound.player.PlayerState
@@ -32,7 +33,30 @@ sealed class GenerationState {
 }
 
 /**
- * Filter categories for voice selection modal.
+ * Multi-dimensional voice filter enums.
+ */
+enum class RegionFilter(val displayName: String) {
+    ALL("Tất cả"),
+    NORTH("Bắc"),
+    CENTRAL("Trung"),
+    SOUTH("Nam")
+}
+
+enum class GenderFilter(val displayName: String) {
+    ALL("Tất cả"),
+    FEMALE("Nữ"),
+    MALE("Nam")
+}
+
+enum class StyleFilter(val displayName: String) {
+    ALL("Tất cả"),
+    NATURAL("Tự nhiên"),
+    STORY("Kể chuyện / Đọc truyện"),
+    NEWS("Tin tức")
+}
+
+/**
+ * Filter categories for voice selection modal (legacy single-dimension filter).
  */
 enum class VoiceFilter(val displayName: String) {
     ALL("Tất cả"),
@@ -47,10 +71,13 @@ enum class VoiceFilter(val displayName: String) {
  * Complete immutable UI state hierarchy for MakeAiSound Studio.
  */
 data class StudioUiState(
-    val text: String = "",
+    val textFieldValue: TextFieldValue = TextFieldValue(""),
     val selectedVoice: VoicePreset? = null,
     val availableVoices: List<VoicePreset> = emptyList(),
     val selectedVoiceFilter: VoiceFilter = VoiceFilter.ALL,
+    val selectedRegionFilter: RegionFilter = RegionFilter.ALL,
+    val selectedGenderFilter: GenderFilter = GenderFilter.ALL,
+    val selectedStyleFilter: StyleFilter = StyleFilter.ALL,
     val generationState: GenerationState = GenerationState.Idle,
     val generatedAudioFile: File? = null,
     val playerState: PlayerState = PlayerState.IDLE,
@@ -62,6 +89,9 @@ data class StudioUiState(
     val showVoicePicker: Boolean = false,
     val showDiagnostics: Boolean = false
 ) {
+    val text: String
+        get() = textFieldValue.text
+
     val charCount: Int
         get() = text.length
 
@@ -74,38 +104,88 @@ data class StudioUiState(
     val canGenerate: Boolean
         get() = text.isNotBlank() && !isGenerating && selectedVoice != null
 
+    val isVoiceFilterActive: Boolean
+        get() = selectedRegionFilter != RegionFilter.ALL ||
+                selectedGenderFilter != GenderFilter.ALL ||
+                selectedStyleFilter != StyleFilter.ALL ||
+                selectedVoiceFilter != VoiceFilter.ALL
+
+    val activeVoiceFilterCount: Int
+        get() = (if (selectedRegionFilter != RegionFilter.ALL) 1 else 0) +
+                (if (selectedGenderFilter != GenderFilter.ALL) 1 else 0) +
+                (if (selectedStyleFilter != StyleFilter.ALL) 1 else 0) +
+                (if (selectedVoiceFilter != VoiceFilter.ALL && selectedRegionFilter == RegionFilter.ALL && selectedGenderFilter == GenderFilter.ALL && selectedStyleFilter == StyleFilter.ALL) 1 else 0)
+
     val filteredVoices: List<VoicePreset>
-        get() = when (selectedVoiceFilter) {
-            VoiceFilter.ALL -> availableVoices
-            VoiceFilter.NORTH -> availableVoices.filter {
-                it.region.equals("Bắc", ignoreCase = true) ||
-                        it.region.equals("Miền Bắc", ignoreCase = true) ||
-                        it.regionDisplay.contains("Bắc", ignoreCase = true) ||
-                        it.description.contains("Miền Bắc", ignoreCase = true) ||
-                        it.description.contains("· Bắc", ignoreCase = true)
+        get() = availableVoices.filter { preset ->
+            val regionMatch = when (selectedRegionFilter) {
+                RegionFilter.ALL -> true
+                RegionFilter.NORTH -> preset.region.equals("Bắc", ignoreCase = true) ||
+                        preset.region.equals("Miền Bắc", ignoreCase = true) ||
+                        preset.regionDisplay.contains("Bắc", ignoreCase = true) ||
+                        preset.description.contains("· Bắc", ignoreCase = true) ||
+                        preset.description.contains("Miền Bắc", ignoreCase = true)
+                RegionFilter.CENTRAL -> preset.region.equals("Trung", ignoreCase = true) ||
+                        preset.region.equals("Miền Trung", ignoreCase = true) ||
+                        preset.regionDisplay.contains("Trung", ignoreCase = true) ||
+                        preset.description.contains("· Trung", ignoreCase = true) ||
+                        preset.description.contains("Miền Trung", ignoreCase = true)
+                RegionFilter.SOUTH -> preset.region.equals("Nam", ignoreCase = true) ||
+                        preset.region.equals("Miền Nam", ignoreCase = true) ||
+                        preset.regionDisplay.contains("Miền Nam", ignoreCase = true) ||
+                        preset.description.contains("· Nam", ignoreCase = true) ||
+                        preset.description.contains("Miền Nam", ignoreCase = true)
             }
-            VoiceFilter.CENTRAL -> availableVoices.filter {
-                it.region.equals("Trung", ignoreCase = true) ||
-                        it.region.equals("Miền Trung", ignoreCase = true) ||
-                        it.regionDisplay.contains("Trung", ignoreCase = true) ||
-                        it.description.contains("Miền Trung", ignoreCase = true) ||
-                        it.description.contains("· Trung", ignoreCase = true)
+
+            val genderMatch = when (selectedGenderFilter) {
+                GenderFilter.ALL -> true
+                GenderFilter.FEMALE -> preset.gender.equals("female", ignoreCase = true) ||
+                        preset.genderDisplay.equals("Nữ", ignoreCase = true) ||
+                        preset.description.startsWith("Nữ", ignoreCase = true)
+                GenderFilter.MALE -> preset.gender.equals("male", ignoreCase = true) ||
+                        preset.genderDisplay.equals("Nam", ignoreCase = true) ||
+                        (preset.description.startsWith("Nam", ignoreCase = true) && !preset.description.startsWith("Nữ", ignoreCase = true))
             }
-            VoiceFilter.SOUTH -> availableVoices.filter {
-                it.region.equals("Nam", ignoreCase = true) ||
-                        it.region.equals("Miền Nam", ignoreCase = true) ||
-                        it.regionDisplay.contains("Miền Nam", ignoreCase = true) ||
-                        it.description.contains("Miền Nam", ignoreCase = true) ||
-                        it.description.contains("· Nam", ignoreCase = true)
+
+            val styleMatch = when (selectedStyleFilter) {
+                StyleFilter.ALL -> true
+                StyleFilter.NATURAL -> preset.style in listOf("tu_nhien", "tunhien", "natural") ||
+                        preset.styleDisplay.contains("tự nhiên", ignoreCase = true) ||
+                        preset.description.contains("tự nhiên", ignoreCase = true)
+                StyleFilter.STORY -> preset.style in listOf("doc_truyen", "doctruyen", "story", "kể chuyện", "ke_chuyen") ||
+                        preset.styleDisplay.contains("kể chuyện", ignoreCase = true) ||
+                        preset.styleDisplay.contains("đọc truyện", ignoreCase = true) ||
+                        preset.description.contains("kể chuyện", ignoreCase = true) ||
+                        preset.description.contains("đọc truyện", ignoreCase = true)
+                StyleFilter.NEWS -> preset.style in listOf("tin_tuc", "tintuc", "news") ||
+                        preset.styleDisplay.contains("tin tức", ignoreCase = true) ||
+                        preset.description.contains("tin tức", ignoreCase = true)
             }
-            VoiceFilter.MALE -> availableVoices.filter {
-                it.gender.equals("male", ignoreCase = true) ||
-                        it.genderDisplay.equals("Nam", ignoreCase = true)
+
+            val legacyMatch = when (selectedVoiceFilter) {
+                VoiceFilter.ALL -> true
+                VoiceFilter.NORTH -> preset.region.equals("Bắc", ignoreCase = true) ||
+                        preset.region.equals("Miền Bắc", ignoreCase = true) ||
+                        preset.regionDisplay.contains("Bắc", ignoreCase = true) ||
+                        preset.description.contains("Miền Bắc", ignoreCase = true) ||
+                        preset.description.contains("· Bắc", ignoreCase = true)
+                VoiceFilter.CENTRAL -> preset.region.equals("Trung", ignoreCase = true) ||
+                        preset.region.equals("Miền Trung", ignoreCase = true) ||
+                        preset.regionDisplay.contains("Trung", ignoreCase = true) ||
+                        preset.description.contains("Miền Trung", ignoreCase = true) ||
+                        preset.description.contains("· Trung", ignoreCase = true)
+                VoiceFilter.SOUTH -> preset.region.equals("Nam", ignoreCase = true) ||
+                        preset.region.equals("Miền Nam", ignoreCase = true) ||
+                        preset.regionDisplay.contains("Miền Nam", ignoreCase = true) ||
+                        preset.description.contains("Miền Nam", ignoreCase = true) ||
+                        preset.description.contains("· Nam", ignoreCase = true)
+                VoiceFilter.MALE -> preset.gender.equals("male", ignoreCase = true) ||
+                        preset.genderDisplay.equals("Nam", ignoreCase = true)
+                VoiceFilter.FEMALE -> preset.gender.equals("female", ignoreCase = true) ||
+                        preset.genderDisplay.equals("Nữ", ignoreCase = true)
             }
-            VoiceFilter.FEMALE -> availableVoices.filter {
-                it.gender.equals("female", ignoreCase = true) ||
-                        it.genderDisplay.equals("Nữ", ignoreCase = true)
-            }
+
+            regionMatch && genderMatch && styleMatch && legacyMatch
         }
 
     val filteredLogs: List<StudioLogEntry>
@@ -121,10 +201,13 @@ data class StudioUiState(
         if (this === other) return true
         if (javaClass != other?.javaClass) return false
         other as StudioUiState
-        if (text != other.text) return false
+        if (textFieldValue != other.textFieldValue) return false
         if (selectedVoice != other.selectedVoice) return false
         if (availableVoices != other.availableVoices) return false
         if (selectedVoiceFilter != other.selectedVoiceFilter) return false
+        if (selectedRegionFilter != other.selectedRegionFilter) return false
+        if (selectedGenderFilter != other.selectedGenderFilter) return false
+        if (selectedStyleFilter != other.selectedStyleFilter) return false
         if (generationState != other.generationState) return false
         if (generatedAudioFile != other.generatedAudioFile) return false
         if (playerState != other.playerState) return false
@@ -139,10 +222,13 @@ data class StudioUiState(
     }
 
     override fun hashCode(): Int {
-        var result = text.hashCode()
+        var result = textFieldValue.hashCode()
         result = 31 * result + (selectedVoice?.hashCode() ?: 0)
         result = 31 * result + availableVoices.hashCode()
         result = 31 * result + selectedVoiceFilter.hashCode()
+        result = 31 * result + selectedRegionFilter.hashCode()
+        result = 31 * result + selectedGenderFilter.hashCode()
+        result = 31 * result + selectedStyleFilter.hashCode()
         result = 31 * result + generationState.hashCode()
         result = 31 * result + (generatedAudioFile?.hashCode() ?: 0)
         result = 31 * result + playerState.hashCode()

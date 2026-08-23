@@ -21,7 +21,6 @@ import androidx.compose.material.icons.filled.Headphones
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Replay
-import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -66,7 +65,6 @@ fun AudioStudioCard(
     onReplay: () -> Unit,
     onSeek: (Float) -> Unit,
     onSaveToStorage: () -> Unit,
-    onShareAudio: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Card(
@@ -226,31 +224,6 @@ fun AudioStudioCard(
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
                         text = "Lưu WAV",
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
-
-                // Share Button
-                OutlinedButton(
-                    onClick = onShareAudio,
-                    shape = RoundedCornerShape(10.dp),
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        containerColor = SurfaceElevated,
-                        contentColor = ElectricCyan
-                    ),
-                    border = ButtonDefaults.outlinedButtonBorder(enabled = true).copy(
-                        brush = Brush.horizontalGradient(listOf(ElectricCyan, NeonViolet))
-                    )
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Share,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = "Chia sẻ",
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.SemiBold
                     )

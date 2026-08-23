@@ -43,6 +43,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import skul9x.example.makesound.engine.VoicePreset
+import skul9x.example.makesound.ui.GenderFilter
+import skul9x.example.makesound.ui.RegionFilter
+import skul9x.example.makesound.ui.StyleFilter
 import skul9x.example.makesound.ui.VoiceFilter
 import skul9x.example.makesound.ui.theme.ElectricCyan
 import skul9x.example.makesound.ui.theme.MidnightBlack
@@ -62,8 +65,15 @@ fun VoicePickerBottomSheet(
     sheetState: SheetState,
     voices: List<VoicePreset>,
     selectedVoice: VoicePreset?,
-    selectedFilter: VoiceFilter,
-    onFilterSelected: (VoiceFilter) -> Unit,
+    selectedRegionFilter: RegionFilter = RegionFilter.ALL,
+    selectedGenderFilter: GenderFilter = GenderFilter.ALL,
+    selectedStyleFilter: StyleFilter = StyleFilter.ALL,
+    onRegionFilterSelected: (RegionFilter) -> Unit = {},
+    onGenderFilterSelected: (GenderFilter) -> Unit = {},
+    onStyleFilterSelected: (StyleFilter) -> Unit = {},
+    onResetFilters: () -> Unit = {},
+    selectedFilter: VoiceFilter = VoiceFilter.ALL,
+    onFilterSelected: ((VoiceFilter) -> Unit)? = null,
     onVoiceSelected: (VoicePreset) -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -123,19 +133,90 @@ fun VoicePickerBottomSheet(
                 }
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(10.dp))
 
-            // Filter Chips Row
+            val isFilterActive = selectedRegionFilter != RegionFilter.ALL ||
+                    selectedGenderFilter != GenderFilter.ALL ||
+                    selectedStyleFilter != StyleFilter.ALL ||
+                    selectedFilter != VoiceFilter.ALL
+            val activeFilterCount = (if (selectedRegionFilter != RegionFilter.ALL) 1 else 0) +
+                    (if (selectedGenderFilter != GenderFilter.ALL) 1 else 0) +
+                    (if (selectedStyleFilter != StyleFilter.ALL) 1 else 0) +
+                    (if (selectedFilter != VoiceFilter.ALL && selectedRegionFilter == RegionFilter.ALL && selectedGenderFilter == GenderFilter.ALL && selectedStyleFilter == StyleFilter.ALL) 1 else 0)
+
+            // Filter Section Header with Active Badge & Reset Button
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.FilterList,
+                        contentDescription = null,
+                        tint = ElectricCyan,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "Bộ lọc giọng đọc",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold,
+                        color = TextPrimary
+                    )
+                    if (activeFilterCount > 0) {
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(ElectricCyan.copy(alpha = 0.2f))
+                                .border(1.dp, ElectricCyan, RoundedCornerShape(10.dp))
+                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                        ) {
+                            Text(
+                                text = "$activeFilterCount",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = ElectricCyan
+                            )
+                        }
+                    }
+                }
+
+                if (isFilterActive) {
+                    Text(
+                        text = "Đặt lại",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = ElectricCyan,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(4.dp))
+                            .clickable { onResetFilters() }
+                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Dimension 1: Vùng miền
+            Text(
+                text = "Vùng miền",
+                style = MaterialTheme.typography.labelSmall,
+                color = TextSecondary,
+                fontWeight = FontWeight.Medium
+            )
+            Spacer(modifier = Modifier.height(4.dp))
             FlowRow(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp)
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-                VoiceFilter.values().forEach { filter ->
-                    val isSelected = filter == selectedFilter
+                RegionFilter.values().forEach { filter ->
+                    val isSelected = filter == selectedRegionFilter
                     FilterChip(
                         selected = isSelected,
-                        onClick = { onFilterSelected(filter) },
+                        onClick = { onRegionFilterSelected(filter) },
                         label = {
                             Text(
                                 text = filter.displayName,
@@ -154,6 +235,96 @@ fun VoicePickerBottomSheet(
                             selected = isSelected,
                             borderColor = SurfaceBorder,
                             selectedBorderColor = ElectricCyan,
+                            borderWidth = 1.dp
+                        ),
+                        shape = RoundedCornerShape(8.dp)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(6.dp))
+
+            // Dimension 2: Giới tính
+            Text(
+                text = "Giới tính",
+                style = MaterialTheme.typography.labelSmall,
+                color = TextSecondary,
+                fontWeight = FontWeight.Medium
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            FlowRow(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                GenderFilter.values().forEach { filter ->
+                    val isSelected = filter == selectedGenderFilter
+                    FilterChip(
+                        selected = isSelected,
+                        onClick = { onGenderFilterSelected(filter) },
+                        label = {
+                            Text(
+                                text = filter.displayName,
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                            )
+                        },
+                        colors = FilterChipDefaults.filterChipColors(
+                            containerColor = SurfaceCard,
+                            selectedContainerColor = NeonPurple.copy(alpha = 0.2f),
+                            labelColor = TextSecondary,
+                            selectedLabelColor = NeonPurple
+                        ),
+                        border = FilterChipDefaults.filterChipBorder(
+                            enabled = true,
+                            selected = isSelected,
+                            borderColor = SurfaceBorder,
+                            selectedBorderColor = NeonPurple,
+                            borderWidth = 1.dp
+                        ),
+                        shape = RoundedCornerShape(8.dp)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(6.dp))
+
+            // Dimension 3: Phong cách
+            Text(
+                text = "Phong cách",
+                style = MaterialTheme.typography.labelSmall,
+                color = TextSecondary,
+                fontWeight = FontWeight.Medium
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            FlowRow(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                StyleFilter.values().forEach { filter ->
+                    val isSelected = filter == selectedStyleFilter
+                    FilterChip(
+                        selected = isSelected,
+                        onClick = { onStyleFilterSelected(filter) },
+                        label = {
+                            Text(
+                                text = filter.displayName,
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                            )
+                        },
+                        colors = FilterChipDefaults.filterChipColors(
+                            containerColor = SurfaceCard,
+                            selectedContainerColor = NeonViolet.copy(alpha = 0.2f),
+                            labelColor = TextSecondary,
+                            selectedLabelColor = NeonViolet
+                        ),
+                        border = FilterChipDefaults.filterChipBorder(
+                            enabled = true,
+                            selected = isSelected,
+                            borderColor = SurfaceBorder,
+                            selectedBorderColor = NeonViolet,
                             borderWidth = 1.dp
                         ),
                         shape = RoundedCornerShape(8.dp)

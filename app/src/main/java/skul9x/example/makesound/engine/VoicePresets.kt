@@ -15,7 +15,8 @@ data class VoicePreset(
     val region: String = "Bắc",
     val style: String = "tu_nhien",
     val speakerEmb: FloatArray,
-    val codes: Array<IntArray>? = null
+    val codes: Array<IntArray>? = null,
+    val featured: Int? = null
 ) {
     val genderDisplay: String
         get() = when (gender.trim().lowercase()) {
@@ -109,19 +110,21 @@ data class VoicePreset(
         if (javaClass != other?.javaClass) return false
         other as VoicePreset
         if (name != other.name) return false
+        if (featured != other.featured) return false
         if (!speakerEmb.contentEquals(other.speakerEmb)) return false
         return true
     }
 
     override fun hashCode(): Int {
         var result = name.hashCode()
+        result = 31 * result + (featured ?: 0)
         result = 31 * result + speakerEmb.contentHashCode()
         return result
     }
 }
 
 /**
- * Registry and loader for all 8 Vietnamese preset voices.
+ * Registry and loader for all 25 Vietnamese preset voices.
  */
 object VoicePresets {
     private val presetsMap = ConcurrentHashMap<String, VoicePreset>()
@@ -142,12 +145,30 @@ object VoicePresets {
         return presetsMap.values.toList()
     }
 
+    fun getFeaturedVoices(): List<VoicePreset> {
+        return presetsMap.values
+            .filter { it.featured != null && it.featured > 0 }
+            .sortedBy { it.featured }
+    }
+
     fun getVoiceEmbedding(name: String): FloatArray? {
         return getVoice(name)?.speakerEmb
     }
 
     fun getRefCodes(name: String): Array<IntArray>? {
         return getVoice(name)?.codes
+    }
+
+    /**
+     * Strips trailing encoder pad frame (Issue #198 upstream fix) where codebook-0 is 455.
+     * MOSS audio tokenizer pads clips not aligned to 3840 samples with code 455.
+     */
+    fun stripEncoderPadFrame(codes: Array<IntArray>?): Array<IntArray>? {
+        if (codes == null) return null
+        if (codes.size >= 2 && codes.last().isNotEmpty() && codes.last()[0] == 455) {
+            return codes.copyOfRange(0, codes.size - 1)
+        }
+        return codes
     }
 
     fun loadFromContext(context: Context, assetPath: String = "vieneu/voices_v3_turbo.json"): Boolean {
@@ -179,6 +200,11 @@ object VoicePresets {
             val region = vObj.optString("region", "")
             val style = vObj.optString("style", "tu_nhien")
 
+            val featured = if (vObj.has("featured")) {
+                val f = vObj.optInt("featured", 0)
+                if (f > 0) f else null
+            } else null
+
             val embArr = vObj.getJSONArray("speaker_emb")
             val emb = FloatArray(embArr.length()) { i -> embArr.getDouble(i).toFloat() }
 
@@ -187,10 +213,11 @@ object VoicePresets {
                 val codesArr = vObj.getJSONArray("codes")
                 val nFrames = codesArr.length()
                 if (nFrames > 0) {
-                    codes = Array(nFrames) { f ->
+                    val rawCodes = Array(nFrames) { f ->
                         val frameArr = codesArr.getJSONArray(f)
                         IntArray(frameArr.length()) { c -> frameArr.getInt(c) }
                     }
+                    codes = stripEncoderPadFrame(rawCodes)
                 }
             }
 
@@ -202,7 +229,8 @@ object VoicePresets {
                     region = region,
                     style = style,
                     speakerEmb = emb,
-                    codes = codes
+                    codes = codes,
+                    featured = featured
                 )
             )
         }

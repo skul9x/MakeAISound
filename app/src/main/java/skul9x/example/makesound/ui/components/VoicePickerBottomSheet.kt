@@ -446,7 +446,16 @@ fun VoicePickerItem(
 
                     Spacer(modifier = Modifier.height(6.dp))
 
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        if (voice.featured != null) {
+                            VoiceTagBadge(
+                                text = "⭐ #${voice.featured}",
+                                color = ElectricCyan
+                            )
+                        }
                         if (voice.genderDisplay.isNotEmpty()) {
                             VoiceTagBadge(
                                 text = voice.genderDisplay,

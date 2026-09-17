@@ -109,7 +109,6 @@ class VieNeuStudioSynthesizer(
 
         val totalChunks = chunks.size
         val audioChunkList = ArrayList<ShortArray>(totalChunks)
-        val pauseSamplesList = ArrayList<ShortArray>(totalChunks)
 
         onProgress?.invoke(0, totalChunks, 0.0f, null)
 
@@ -140,11 +139,7 @@ class VieNeuStudioSynthesizer(
             PcmUtils.applyMicroFade(shortAudio)
             audioChunkList.add(shortAudio)
 
-            // 5. Gap Silence Buffer
-            val silenceBuffer = PcmUtils.generateSilence(chunk.pauseDurationMs, VieNeuConfig.SAMPLE_RATE)
-            pauseSamplesList.add(silenceBuffer)
-
-            // 6. Telemetry Tracking
+            // 5. Telemetry Tracking
             val timing = inferResult.timing
             val totalSynthMs = g2pDuration + timing.totalDurationMs
             val audioDurationMs = if (VieNeuConfig.SAMPLE_RATE > 0) {
@@ -176,12 +171,20 @@ class VieNeuStudioSynthesizer(
             onProgress?.invoke(idx + 1, totalChunks, percent, chunkMetrics)
         }
 
-        // 7. Join Chunks with Gap Silences
+        // 6. Join Chunks with Dynamic Gap Silences using pausePadSamples
+        val padLengths = IntArray(if (totalChunks > 1) totalChunks - 1 else 0)
         var totalSamples = 0
         for (i in 0 until totalChunks) {
             totalSamples += audioChunkList[i].size
             if (i < totalChunks - 1) {
-                totalSamples += pauseSamplesList[i].size
+                val pad = PcmUtils.pausePadSamples(
+                    prevChunk = audioChunkList[i],
+                    nextChunk = audioChunkList[i + 1],
+                    pauseMs = chunks[i].pauseDurationMs,
+                    sampleRate = VieNeuConfig.SAMPLE_RATE
+                )
+                padLengths[i] = pad
+                totalSamples += pad
             }
         }
 
@@ -193,9 +196,8 @@ class VieNeuStudioSynthesizer(
             offset += audio.size
 
             if (i < totalChunks - 1) {
-                val silence = pauseSamplesList[i]
-                System.arraycopy(silence, 0, finalPcm, offset, silence.size)
-                offset += silence.size
+                val pad = padLengths[i]
+                offset += pad // ShortArray is already zero-initialized
             }
         }
 

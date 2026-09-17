@@ -1073,16 +1073,73 @@ class VieNeuOnnxEngine(
         const val MAX_FRAMES_PER_PHONE: Double = 2.0
         const val FRAME_CAP_SLACK: Int = 24
         const val SINGLE_WORD_MAX_FRAMES: Int = 13
+        const val SYLLABLE_CAP_PER_EXTRA: Int = 5
+        const val SYLLABLE_CAP_MAX_SYL: Int = 4
         const val SINGLE_WORD_MAX_PHONES: Int = 24
-        private val FRAME_MARKUP_RE = Regex("""<\|emotion_\d+\|>|</?en>""")
 
-        fun maxExpectedFrames(phonemes: String): Int {
-            val stripped = FRAME_MARKUP_RE.replace(phonemes, "")
+        private val FRAME_MARKUP_RE = Regex("""<\|emotion_\d+\|>|</?en>""")
+        private val WHITESPACE_RE = Regex("""\s+""")
+
+        val IPA_AND_VN_VOWELS: Set<Char> = (
+            "aeiouyæɐɑɒɔəɘɛɜɤɯɵøœʉʊʌɪɨɚɝᵻᵿ" +
+            "aàáảãạăằắẳẵặâầấẩẫậeèéẻẽẹêềếểễệiìíỉĩịoòóỏõọôồốổỗộơờớởỡợuùúủũụưừứửữựyỳýỷỹỵ"
+        ).toSet()
+
+        fun isCueOnly(phonemes: String?): Boolean {
+            val ph = phonemes ?: return false
+            if (!ph.contains("<|emotion_")) return false
+            val stripped = FRAME_MARKUP_RE.replace(ph, "")
+            return !stripped.any { it.isLetter() }
+        }
+
+        fun syllableCount(phonemes: String?): Int {
+            val stripped = FRAME_MARKUP_RE.replace(phonemes ?: "", "")
+            var total = 0
+            val tokens = stripped.trim().split(WHITESPACE_RE).filter { it.isNotEmpty() }
+            for (tok in tokens) {
+                var groups = 0
+                var inV = false
+                var consonantSeen = true
+                for (ch in tok) {
+                    val lowerCh = ch.lowercaseChar()
+                    if (lowerCh in IPA_AND_VN_VOWELS) {
+                        if (!inV && consonantSeen) {
+                            groups++
+                        }
+                        inV = true
+                        consonantSeen = false
+                    } else if (ch in "ːˈˌ" || ch.isDigit()) {
+                        if ((ch == 'ˈ' || ch == 'ˌ') && groups > 0) {
+                            inV = false
+                            consonantSeen = true
+                        } else {
+                            inV = false
+                        }
+                    } else {
+                        inV = false
+                        consonantSeen = true
+                    }
+                }
+                if (tok.any { it.isLetter() }) {
+                    total += maxOf(1, groups)
+                }
+            }
+            return maxOf(1, total)
+        }
+
+        fun maxExpectedFrames(phonemes: String?): Int {
+            val ph = phonemes ?: ""
+            val stripped = FRAME_MARKUP_RE.replace(ph, "")
             val effLen = stripped.length
             var cap = FRAME_CAP_SLACK + ceil(MAX_FRAMES_PER_PHONE * effLen).toInt()
-            val words = stripped.trim().split(Regex("""\s+""")).filter { it.isNotEmpty() }
-            if (words.size <= 1 && effLen <= SINGLE_WORD_MAX_PHONES && !phonemes.contains("<|emotion_")) {
-                cap = min(cap, SINGLE_WORD_MAX_FRAMES)
+            if (isCueOnly(ph)) {
+                return min(cap, SINGLE_WORD_MAX_FRAMES)
+            }
+            if (!ph.contains("<|emotion_")) {
+                val syl = maxOf(1, syllableCount(ph))
+                if (syl <= SYLLABLE_CAP_MAX_SYL && effLen <= SINGLE_WORD_MAX_PHONES * syl) {
+                    cap = min(cap, SINGLE_WORD_MAX_FRAMES + SYLLABLE_CAP_PER_EXTRA * (syl - 1))
+                }
             }
             return cap
         }

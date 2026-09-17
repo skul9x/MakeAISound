@@ -5,9 +5,9 @@ package skul9x.example.makesound.engine
  */
 enum class PauseType(val defaultDurationMs: Int) {
     TITLE_BREAK(1000),       // Pause between story/chapter title and main content
-    PARAGRAPH_BREAK(350),    // Pause after paragraph transitions (\n\n, </p>, </div>, <br>) - Calibrated V3 Gap
-    SENTENCE_BREAK(180),     // Pause after terminal punctuation (. ! ? …) - Calibrated V3 Gap
-    CLAUSE_BREAK(40),        // Pause after intra-sentence pauses (, ; : — –) - Calibrated V3 Gap
+    PARAGRAPH_BREAK(700),    // Pause after paragraph transitions (\n\n, </p>, </div>, <br>) - Calibrated V3 Gap
+    SENTENCE_BREAK(500),     // Pause after terminal punctuation (. ! ? …) - Calibrated V3 Gap
+    CLAUSE_BREAK(300),       // Pause after intra-sentence pauses (, ; : — –) - Calibrated V3 Gap
     DIALOGUE_LEAD(250)       // Pause after introductory dialogue dash (- )
 }
 

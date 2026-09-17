@@ -148,8 +148,16 @@ fun VoiceSelectorCard(
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
+                    if (selectedVoice.featured != null) {
+                        VoiceTagBadge(
+                            text = "⭐ #${selectedVoice.featured}",
+                            color = ElectricCyan
+                        )
+                    }
+
                     if (selectedVoice.genderDisplay.isNotEmpty()) {
                         VoiceTagBadge(
                             text = selectedVoice.genderDisplay,

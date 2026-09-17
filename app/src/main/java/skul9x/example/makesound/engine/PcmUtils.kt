@@ -90,8 +90,203 @@ object PcmUtils {
         return pcm16
     }
 
+    val V3_CALIBRATED_GAP_SILENCE_MS = mapOf(
+        "para" to 700,
+        "paragraph" to 700,
+        "sentence" to 500,
+        "minor" to 300,
+        "clause" to 300
+    )
+
+    const val EDGE_THRESH_DB = -45.0f
+    const val EDGE_WIN_MS = 10.0f
+
     /**
-     * Join multiple audio chunks with calibrated gap silences.
+     * Measure leading and trailing silence durations (in sample counts) of a 16-bit PCM waveform.
+     * Uses a 10ms window RMS envelope threshold (-45 dB).
+     * If the audio is completely silent or shorter than one window, returns (pcm16.size, 0).
+     *
+     * @param pcm16 16-bit PCM audio samples.
+     * @param sampleRate Sampling rate in Hz (default 48000).
+     * @param threshDb RMS threshold in decibels (default -45.0 dB).
+     * @param winMs Window duration in milliseconds (default 10.0 ms).
+     * @return Pair of (leadingSilenceSamples, trailingSilenceSamples).
+     */
+    fun edgeSilence(
+        pcm16: ShortArray,
+        sampleRate: Int = VieNeuConfig.SAMPLE_RATE,
+        threshDb: Float = EDGE_THRESH_DB,
+        winMs: Float = EDGE_WIN_MS
+    ): Pair<Int, Int> {
+        val nSamp = pcm16.size
+        if (nSamp == 0) return Pair(0, 0)
+
+        val win = maxOf(1, ((winMs * sampleRate) / 1000f).toInt())
+        val nWin = nSamp / win
+        if (nWin == 0) {
+            return Pair(nSamp, 0)
+        }
+
+        val threshLinear = Math.pow(10.0, threshDb.toDouble() / 20.0)
+
+        // Find first active window from start
+        var firstActiveWin = -1
+        for (w in 0 until nWin) {
+            val startIdx = w * win
+            var sumSq = 0.0
+            for (i in 0 until win) {
+                val s = pcm16[startIdx + i].toDouble() / 32767.0
+                sumSq += s * s
+            }
+            val rms = Math.sqrt(sumSq / win)
+            if (rms > threshLinear) {
+                firstActiveWin = w
+                break
+            }
+        }
+
+        // Entire waveform is silence
+        if (firstActiveWin == -1) {
+            return Pair(nSamp, 0)
+        }
+
+        // Find last active window from end
+        var lastActiveWin = firstActiveWin
+        for (w in nWin - 1 downTo firstActiveWin) {
+            val startIdx = w * win
+            var sumSq = 0.0
+            for (i in 0 until win) {
+                val s = pcm16[startIdx + i].toDouble() / 32767.0
+                sumSq += s * s
+            }
+            val rms = Math.sqrt(sumSq / win)
+            if (rms > threshLinear) {
+                lastActiveWin = w
+                break
+            }
+        }
+
+        val lead = firstActiveWin * win
+        val tail = nSamp - (lastActiveWin + 1) * win
+        return Pair(lead, tail)
+    }
+
+    /**
+     * FloatArray overload of [edgeSilence].
+     */
+    fun edgeSilence(
+        pcmFloat: FloatArray,
+        sampleRate: Int = VieNeuConfig.SAMPLE_RATE,
+        threshDb: Float = EDGE_THRESH_DB,
+        winMs: Float = EDGE_WIN_MS
+    ): Pair<Int, Int> {
+        val nSamp = pcmFloat.size
+        if (nSamp == 0) return Pair(0, 0)
+
+        val win = maxOf(1, ((winMs * sampleRate) / 1000f).toInt())
+        val nWin = nSamp / win
+        if (nWin == 0) {
+            return Pair(nSamp, 0)
+        }
+
+        val threshLinear = Math.pow(10.0, threshDb.toDouble() / 20.0)
+
+        var firstActiveWin = -1
+        for (w in 0 until nWin) {
+            val startIdx = w * win
+            var sumSq = 0.0
+            for (i in 0 until win) {
+                val s = pcmFloat[startIdx + i].toDouble()
+                sumSq += s * s
+            }
+            val rms = Math.sqrt(sumSq / win)
+            if (rms > threshLinear) {
+                firstActiveWin = w
+                break
+            }
+        }
+
+        if (firstActiveWin == -1) {
+            return Pair(nSamp, 0)
+        }
+
+        var lastActiveWin = firstActiveWin
+        for (w in nWin - 1 downTo firstActiveWin) {
+            val startIdx = w * win
+            var sumSq = 0.0
+            for (i in 0 until win) {
+                val s = pcmFloat[startIdx + i].toDouble()
+                sumSq += s * s
+            }
+            val rms = Math.sqrt(sumSq / win)
+            if (rms > threshLinear) {
+                lastActiveWin = w
+                break
+            }
+        }
+
+        val lead = firstActiveWin * win
+        val tail = nSamp - (lastActiveWin + 1) * win
+        return Pair(lead, tail)
+    }
+
+    /**
+     * Compute remaining zero samples needed between [prevChunk] and [nextChunk] such that:
+     * (tailSilence + zeros + leadSilence) == targetPause.
+     * If (tailSilence + leadSilence) >= targetPause, returns 0.
+     *
+     * If [prevChunk] is all-silence, its entire duration counts as trailing silence.
+     * If [nextChunk] is all-silence, its entire duration counts as leading silence.
+     *
+     * @param prevChunk Preceding 16-bit PCM chunk.
+     * @param nextChunk Following 16-bit PCM chunk.
+     * @param pauseMs Target pause duration in milliseconds.
+     * @param sampleRate Sampling rate in Hz (default 48000).
+     * @return Number of zero samples to pad between chunks.
+     */
+    fun pausePadSamples(
+        prevChunk: ShortArray,
+        nextChunk: ShortArray,
+        pauseMs: Int,
+        sampleRate: Int = VieNeuConfig.SAMPLE_RATE
+    ): Int {
+        if (pauseMs <= 0) return 0
+        val targetSamples = ((pauseMs.toLong() * sampleRate) / 1000L).toInt()
+
+        val tail = if (prevChunk.isNotEmpty()) {
+            val (leadPrev, tailPrev) = edgeSilence(prevChunk, sampleRate)
+            if (leadPrev == prevChunk.size) prevChunk.size else tailPrev
+        } else {
+            0
+        }
+
+        val lead = if (nextChunk.isNotEmpty()) {
+            val (leadNext, _) = edgeSilence(nextChunk, sampleRate)
+            leadNext
+        } else {
+            0
+        }
+
+        return maxOf(0, targetSamples - tail - lead)
+    }
+
+    /**
+     * Float seconds overload of [pausePadSamples].
+     */
+    fun pausePadSamples(
+        prevChunk: ShortArray,
+        nextChunk: ShortArray,
+        pauseSeconds: Float,
+        sampleRate: Int = VieNeuConfig.SAMPLE_RATE
+    ): Int = pausePadSamples(
+        prevChunk,
+        nextChunk,
+        (pauseSeconds * 1000f).toInt(),
+        sampleRate
+    )
+
+    /**
+     * Join multiple audio chunks with calibrated gap silences using dynamic padding [pausePadSamples].
      */
     fun joinAudioChunks(
         chunks: List<ShortArray>,
@@ -101,32 +296,71 @@ object PcmUtils {
         if (chunks.isEmpty()) return ShortArray(0)
         if (chunks.size == 1) return chunks[0]
 
+        val pads = IntArray(chunks.size - 1)
         var totalLen = 0
         for (c in chunks) {
             totalLen += c.size
         }
-        for (g in gaps) {
-            val pauseMs = V3_GAP_SILENCE_MS[g] ?: V3_GAP_SILENCE_MS["sentence"] ?: 180
-            totalLen += ((sampleRate.toLong() * pauseMs) / 1000L).toInt()
+        for (i in 0 until chunks.size - 1) {
+            val gapType = if (i < gaps.size) gaps[i] else "sentence"
+            val pauseMs = V3_CALIBRATED_GAP_SILENCE_MS[gapType]
+                ?: V3_GAP_SILENCE_MS[gapType]
+                ?: 500
+            val pad = pausePadSamples(chunks[i], chunks[i + 1], pauseMs, sampleRate)
+            pads[i] = pad
+            totalLen += pad
         }
 
         val result = ShortArray(totalLen)
         var offset = 0
-
         for (i in chunks.indices) {
             val chunk = chunks[i]
             System.arraycopy(chunk, 0, result, offset, chunk.size)
             offset += chunk.size
 
-            if (i < gaps.size) {
-                val gapType = gaps[i]
-                val pauseMs = V3_GAP_SILENCE_MS[gapType] ?: V3_GAP_SILENCE_MS["sentence"] ?: 180
-                val silenceSamples = ((sampleRate.toLong() * pauseMs) / 1000L).toInt()
-                // Zeroes already in result array
-                offset += silenceSamples
+            if (i < chunks.size - 1) {
+                offset += pads[i]
             }
         }
 
-        return if (offset == totalLen) result else result.copyOf(offset)
+        return result
+    }
+
+    /**
+     * Join multiple audio chunks with explicit list of pause durations in milliseconds.
+     */
+    fun joinAudioChunksWithPauses(
+        chunks: List<ShortArray>,
+        pausesMs: List<Int>,
+        sampleRate: Int = VieNeuConfig.SAMPLE_RATE
+    ): ShortArray {
+        if (chunks.isEmpty()) return ShortArray(0)
+        if (chunks.size == 1) return chunks[0]
+
+        val pads = IntArray(chunks.size - 1)
+        var totalLen = 0
+        for (c in chunks) {
+            totalLen += c.size
+        }
+        for (i in 0 until chunks.size - 1) {
+            val pauseMs = if (i < pausesMs.size) pausesMs[i] else 500
+            val pad = pausePadSamples(chunks[i], chunks[i + 1], pauseMs, sampleRate)
+            pads[i] = pad
+            totalLen += pad
+        }
+
+        val result = ShortArray(totalLen)
+        var offset = 0
+        for (i in chunks.indices) {
+            val chunk = chunks[i]
+            System.arraycopy(chunk, 0, result, offset, chunk.size)
+            offset += chunk.size
+
+            if (i < chunks.size - 1) {
+                offset += pads[i]
+            }
+        }
+
+        return result
     }
 }

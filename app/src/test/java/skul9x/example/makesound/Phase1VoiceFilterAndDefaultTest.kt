@@ -68,7 +68,7 @@ class Phase1VoiceFilterAndDefaultTest {
             assertEquals("Nữ · Bắc · Giọng đọc tự nhiên", ngocHuyen?.description)
 
             val allVoices = VoicePresets.getVoicePresets()
-            assertEquals("Total curated preset voices must be 20", 20, allVoices.size)
+            assertEquals("Total curated preset voices must be 25", 25, allVoices.size)
 
             // =========================================================================
             // 2. ViewModel Initialization with Default Voice "Ngọc Huyền"
@@ -82,7 +82,7 @@ class Phase1VoiceFilterAndDefaultTest {
 
             viewModel.loadVoices(null)
             var uiState = viewModel.uiState.value
-            assertEquals("ViewModel available voices count must be 20", 20, uiState.availableVoices.size)
+            assertEquals("ViewModel available voices count must be 25", 25, uiState.availableVoices.size)
             assertNotNull("ViewModel selectedVoice must not be null", uiState.selectedVoice)
             assertEquals("ViewModel initial selectedVoice must be Ngọc Huyền", "Ngọc Huyền", uiState.selectedVoice?.name)
 
@@ -96,7 +96,7 @@ class Phase1VoiceFilterAndDefaultTest {
             // Initial state: no filters active
             assertFalse("Initial filter must be inactive", uiState.isVoiceFilterActive)
             assertEquals(0, uiState.activeVoiceFilterCount)
-            assertEquals(20, uiState.filteredVoices.size)
+            assertEquals(25, uiState.filteredVoices.size)
 
             // 3.1 Combination: North + Female
             viewModel.setRegionFilter(RegionFilter.NORTH)
@@ -180,7 +180,7 @@ class Phase1VoiceFilterAndDefaultTest {
             assertEquals(StyleFilter.ALL, uiState.selectedStyleFilter)
             assertFalse("Filter must be inactive after reset", uiState.isVoiceFilterActive)
             assertEquals(0, uiState.activeVoiceFilterCount)
-            assertEquals("Reset must return all 20 voices", 20, uiState.filteredVoices.size)
+            assertEquals("Reset must return all 25 voices", 25, uiState.filteredVoices.size)
 
         } finally {
             playerManager.release()

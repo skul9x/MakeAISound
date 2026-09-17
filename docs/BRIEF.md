@@ -1,70 +1,79 @@
-# 💡 BRIEF: MakeAiSound - AI Voice Studio & Core Engine Upgrade (VieNeu-TTS v3.8.1)
+# 💡 BRIEF: Tính Năng Voice Sample Sound Preview (Nghe Thử Giọng AI)
 
-**Ngày cập nhật:** 2026-09-17  
+**Ngày tạo:** 2026-09-17  
 **Dự án:** MakeAiSound (`/home/skul9x/Desktop/Code/MakeAISound-main`)  
-**Mục tiêu:** Nâng cấp Core AI Engine của ứng dụng Android Kotlin từ bản cập nhật mới nhất của `VieNeu-TTS-main` (v3.8.1).  
-**Nền tảng:** Android 7.0+ (Kotlin, Jetpack Compose, ONNX Runtime Android)  
+**Nền tảng:** Android Studio (Native Kotlin 2.0, Jetpack Compose, Material Design 3)  
+**Tác giả:** skul9x & Antigravity  
 
 ---
 
-## 1. VẤN ĐỀ & MỤC TIÊU CẬP NHẬT (CORE VALUE)
-Bản cập nhật `VieNeu-TTS v3.8.1` mang đến nhiều cải tiến thuật toán quan trọng và mở rộng catalog giọng đọc tiếng Việt.  
-Ứng dụng Android Kotlin `MakeAiSound` hiện đang dùng cấu hình cũ (20 giọng, ngắt nghỉ cứng 350ms/180ms/40ms, chưa có cơ chế bù im lặng thông minh và khử frame đuôi thừa của codec).  
-
-Mục tiêu đợt nâng cấp này là đồng bộ toàn bộ các cải tiến cốt lõi từ `VieNeu-TTS-main` vào app Android native.
+## 1. VẤN ĐỀ CẦN GIẢI QUYẾT
+- **Khó khăn của người dùng:** Ứng dụng MakeAiSound hiện sở hữu thư viện phong phú gồm **25 giọng đọc AI** (thuộc VieNeu-TTS v3.8.1) phân hóa đa dạng theo 3 miền (Bắc, Trung, Nam), giới tính (Nam, Nữ) và phong cách (Tự nhiên, Kể chuyện, Tin tức, Podcast, Thiền). Tuy nhiên, trong giao diện chọn giọng, người dùng chỉ nhìn thấy tên và mô tả bằng văn bản.
+- **Rào cản trải nghiệm:** Người dùng phải nhập văn bản và bấm "Tạo âm thanh" (chờ inference ONNX) thì mới biết giọng đó thực tế phát âm ra sao. Nếu không ưng ý, họ phải lặp lại chu kỳ chọn - sinh audio nhiều lần, gây tốn thời gian và lãng phí tài nguyên thiết bị.
 
 ---
 
-## 2. CÁC ĐIỂM CẬP NHẬT CỐT LÕI TỪ VIENEU-TTS v3.8.1
-
-### 🎙️ 1. Mở rộng Voice Catalog: 20 ➔ 25 Giọng Đọc Độc Bản
-- Bổ sung **5 giọng đọc mới chất lượng cao**:
-  1. **Thiền Tâm Đức** (`Nam · Bắc/Trung · Phong cách Thiền / Tĩnh tại`, Featured: #8)
-  2. **Minh Quân Pro** (`Nam · Bắc · Phong cách Tin tức / MC Chuyên nghiệp`, Featured: #3)
-  3. **Adam bựa** (`Nam · Nam · Phong cách Hài hước / Vlog / Đời thường`)
-  4. **Mạnh Dũng** (`Nam · Bắc · Trầm ấm, dầy dặn`)
-  5. **Anh Khôi** (`Nam · Nam · Trẻ trung, tự nhiên`)
-- **Hệ thống Xếp hạng Giọng Tuyển Chọn (`featured` rank 1..10):**
-  - Đánh dấu các giọng đạt chuẩn phòng thu cao nhất (Editor's Pick ⭐) để hiển thị ưu tiên hàng đầu trong UI Studio.
-
-### 🧹 2. Khử Sọc Nhiễu Đuôi Codec (Issue #198 Pad Frame Fix)
-- **Vấn đề upstream:** MOSS Audio Tokenizer khi mã hóa audio tham chiếu lẻ độ dài thường tự đệm frame cuối cùng với `codebook_0 == 455`. Frame này gây ra một tiếng bật/click hoặc phát âm lạ ở cuối câu khi AI hoàn tất tổng hợp.
-- **Giải pháp:** Tích hợp hàm `stripEncoderPadFrame` loại bỏ frame `455` ở đuôi mã tham chiếu `codes` ngay khi nạp preset và trước khi decode.
-
-### 🔇 3. Chuẩn Hóa Nhịp Ngắt Nghỉ Tự Nhiên (`V3_GAP_SILENCE` & `pause_pad_samples`)
-- **Khoảng lặng chuẩn V3:**
-  - Đoạn văn (`paragraph`): `0.70s` (700ms)
-  - Hết câu (`sentence`): `0.50s` (500ms)
-  - Vế câu (`clause / minor`): `0.30s` (300ms)
-- **Thuật toán bù im lặng động (`pause_pad_samples`):**
-  - Không chèn cứng một đoạn zeros cố định (gây ra tình trạng "đúp" im lặng khi model đã tự sinh đuôi dài).
-  - Tự động đo độ dài im lặng đuôi của chunk trước + đầu chunk sau (`edgeSilence`), chỉ chèn thêm lượng zeros còn thiếu để đạt đúng mục tiêu ngắt nghỉ.
-
-### 🛡️ 4. Bộ Chặn Nói Nhảm Theo Âm Tiết (`Syllable-Aware Babble Guard`)
-- **Vấn đề:** Các câu ngắn 1–3 từ (vd: "Xin chào", "Dạ vâng", "Cảm ơn") dễ bị trượt EOS token và AI tự "nói thêm" (bịa từ nhảm).
-- **Giải pháp:** Tính số âm tiết tiếng Việt/Anh (`syllableCount`) để áp trần frame chặt chẽ:
-  $$\text{Cap} = \min\left(\text{FormulaLen}, 13 + 5 \times (\text{syl} - 1)\right)$$
-  cho các câu từ 1 đến 4 âm tiết.
+## 2. GIẢI PHÁP ĐỀ XUẤT
+- Tích hợp tính năng **Voice Sample Sound Preview** độc lập và tiện lợi:
+  1. **Nút Nghe Thử Trực Tiếp (Quick Preview Button):** Đặt nút Play/Stop tinh tế trên từng thẻ giọng trong `VoicePickerBottomSheet`. Chạm vào là nghe ngay một câu đọc mẫu chuẩn đặc trưng của giọng đó (dài ~2–4 giây).
+  2. **Tốc độ phản hồi 0ms (Zero Latency):** Đóng gói sẵn 25 file âm thanh mẫu chuẩn phòng thu vào thư mục Assets (`assets/vieneu/samples/`), nén tối ưu (tổng dung lượng cực nhẹ ~1.5MB). Khi bấm nghe thử, âm thanh phát ngay lập tức mà không cần chờ ONNX runtime inference, không gây nóng máy hay tốn pin.
+  3. **Bộ phát mẫu độc lập (`VoiceSamplePlayer`):** Hoạt động tách biệt với trình phát chính của Studio (`AudioPlayerManager`), tự động dừng khi người dùng chuyển sang nghe thử giọng khác, khi đóng Bottom Sheet hoặc khi bấm nút "Tạo âm thanh".
 
 ---
 
-## 3. PHÂN CHIA HẠNG MỤC TRIỂN KHAI
-
-### 🚀 MVP (Bắt buộc có ngay):
-- [ ] Đồng bộ `voices_v3_turbo.json` (25 giọng) vào `app/src/main/assets/vieneu/`.
-- [ ] Nâng cấp `VoicePreset` data class: Thêm `val featured: Int? = null`.
-- [ ] Nâng cấp `VoicePresets.kt`: Parser hỗ trợ `featured`, tích hợp `stripEncoderPadFrame`.
-- [ ] Nâng cấp UI Voice Selector: Hiển thị huy hiệu ⭐ Tuyển chọn và sắp xếp các giọng Featured lên đầu danh sách.
-- [ ] Nâng cấp `SmartTextSegmenter.kt`: Cập nhật `V3_GAP_SILENCE` (700ms/500ms/300ms).
-- [ ] Nâng cấp `VieNeuStudioSynthesizer.kt` & `PcmUtils.kt`: Tích hợp `pausePadSamples` (đo `edgeSilence` và chèn phần bù).
-- [ ] Nâng cấp `VieNeuOnnxEngine.kt`: Tích hợp `syllableCount` vào `maxExpectedFrames`.
-
-### 🎁 Phase 2 (Tối ưu nâng cao):
-- [ ] Đánh giá nâng cấp context window từ 1024 lên 2048 tokens nếu cần đọc đoạn văn siêu dài.
-- [ ] Unit test và stress test đo đạc lại latency/RTF trên máy thật Android.
+## 3. ĐỐI TƯỢNG SỬ DỤNG
+- **Người sáng tạo nội dung (Content Creators, YouTubers, Podcasters, TikTokers):** Cần lướt nhanh qua các giọng để tìm chất giọng phù hợp nhất với kịch bản (giọng kể chuyện trầm ấm, giọng tin tức đĩnh đạc, hay giọng hài hước vui nhộn).
+- **Người dùng phổ thông:** Muốn nghe thử nhanh các giọng địa phương yêu thích (giọng Nam, Bắc, Trung) trước khi tạo audio.
 
 ---
 
-## 4. ĐÁNH GIÁ KỸ THUẬT & KHẢ THI
-- **Độ phức tạp:** Trung bình (toàn bộ logic toán học và xử lý mảng đã có bản mẫu chuẩn xác trong `VieNeu-TTS-main`).
-- **Tương thích:** Hoàn toàn tương thích 100% với kiến trúc Android Jetpack Compose và ONNX Runtime hiện hành của app.
+## 4. NGHIÊN CỨU & SO SÁNH GIẢI PHÁP
+
+### So sánh các hướng tiếp cận:
+| Tiêu chí | Đóng gói sẵn Audio Mẫu (Được chọn ⭐) | Sinh động bằng ONNX |
+| :--- | :--- | :--- |
+| **Độ trễ phát (Latency)** | **0ms (Tức thì)** | 1.5s – 3.5s (Phải đợi AI tính toán) |
+| **Trải nghiệm UX** | Rất mượt, bấm liên tục giữa các giọng không trễ | Dễ đơ/lag nếu bấm nghe thử dồn dập |
+| **Dung lượng APK** | Tăng thêm ~1.5MB (rất nhỏ so với model 200MB) | Không tăng dung lượng |
+| **Xung đột tài nguyên** | Hoàn toàn không chiếm CPU/GPU của ONNX | Tranh chấp luồng sinh audio với Studio chính |
+
+*Kết luận:* Phương án đóng gói sẵn 25 file audio mẫu là lựa chọn tối ưu tuyệt đối cho trải nghiệm người dùng trên thiết bị di động.
+
+---
+
+## 5. DANH SÁCH TÍNH NĂNG
+
+### 🚀 MVP (Triển khai ngay):
+1. **Kho tài nguyên 25 File Audio Mẫu (`assets/vieneu/samples/`):**
+   - Đầy đủ 25 file audio mẫu tương ứng với 25 presets trong `voices_v3_turbo.json`.
+   - Chuẩn định dạng: WAV/OGG Lossless/High Quality, âm lượng đồng đều, nội dung thể hiện rõ ngữ điệu và phong cách từng giọng.
+2. **Trình phát mẫu độc lập (`VoiceSamplePlayer`):**
+   - Quản lý trạng thái phát: `currentVoiceName`, `isPlaying`, `error`.
+   - Phát trực tiếp từ Asset File Descriptor (`AssetManager.openFd()`) hoặc cache file.
+   - Cơ chế tự dừng an toàn khi:
+     - Bấm nghe thử một giọng khác (Single-active playback).
+     - Bấm lại chính giọng đang phát (Toggle play/stop).
+     - Người dùng đóng Bottom Sheet.
+     - Ứng dụng chuyển vào background / lifecycle `onPause` / `onDestroy`.
+3. **Cập nhật Giao diện `VoicePickerBottomSheet`:**
+   - Thêm nút Action icon Play/Stop tinh gọn trên mỗi `VoicePickerItem`.
+   - Hiệu ứng visual trạng thái:
+     - Đang phát: Icon Stop/Pause đổi màu thương hiệu `ElectricCyan` + micro-animation hiệu ứng sóng âm/pulse.
+     - Bình thường: Icon Play tròn nhỏ thanh lịch.
+   - Thao tác click trên thẻ giọng: Click vào nút Play thì chỉ nghe thử, click vào thân thẻ thì chọn giọng (`onVoiceSelected`).
+
+### 🎁 Phase 2 (Mở rộng sau):
+- Thêm sóng âm mini visualizer (3–4 vạch nhảy theo âm lượng thực) ngay trên nút preview khi đang phát.
+- Cho phép người dùng gõ câu mẫu tùy chỉnh ngắn để nghe thử bằng ONNX engine on-demand nếu muốn.
+
+---
+
+## 6. ƯỚC TÍNH SƠ BỘ & ĐÁNH GIÁ KỸ THUẬT
+- **Độ phức tạp:** Thấp - Trung bình (Không can thiệp vào ONNX inference core, chỉ phát triển lớp Player nhẹ và nâng cấp giao diện Compose).
+- **Rủi ro kỹ thuật:** Rất thấp. Cần chú ý giải phóng `MediaPlayer` (`release()`) đúng vòng đời để không bị rò rỉ bộ nhớ native (Memory Leak).
+- **Dung lượng:** Thêm khoảng ~1.5MB tài nguyên audio vào file APK (không đáng kể).
+
+---
+
+## 7. BƯỚC TIẾP THEO
+→ Chuyển sang workflow `/plan` để thiết kế chi tiết kiến trúc (`VoiceSamplePlayer`, asset mapping, UI updates và bộ kiểm thử tự động).

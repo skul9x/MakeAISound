@@ -171,10 +171,14 @@ fun MainStudioScreen(
 
     // Voice Picker Modal BottomSheet
     if (uiState.showVoicePicker) {
+        val voicePlayerState by viewModel.voicePlayerState.collectAsState()
         VoicePickerBottomSheet(
             sheetState = voicePickerSheetState,
             voices = uiState.filteredVoices,
             selectedVoice = uiState.selectedVoice,
+            previewVoiceName = voicePlayerState.currentVoiceName,
+            isPreviewPlaying = voicePlayerState.isPlaying,
+            onTogglePreview = { viewModel.toggleVoicePreview(it) },
             selectedRegionFilter = uiState.selectedRegionFilter,
             selectedGenderFilter = uiState.selectedGenderFilter,
             selectedStyleFilter = uiState.selectedStyleFilter,
@@ -182,8 +186,14 @@ fun MainStudioScreen(
             onGenderFilterSelected = { viewModel.setGenderFilter(it) },
             onStyleFilterSelected = { viewModel.setStyleFilter(it) },
             onResetFilters = { viewModel.resetVoiceFilters() },
-            onVoiceSelected = { viewModel.onVoiceSelected(it) },
-            onDismiss = { viewModel.showVoicePicker(false) }
+            onVoiceSelected = {
+                viewModel.stopVoicePreview()
+                viewModel.onVoiceSelected(it)
+            },
+            onDismiss = {
+                viewModel.stopVoicePreview()
+                viewModel.showVoicePicker(false)
+            }
         )
     }
 

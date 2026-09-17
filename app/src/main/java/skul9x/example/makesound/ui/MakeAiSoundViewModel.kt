@@ -29,6 +29,9 @@ import skul9x.example.makesound.player.WaveformSampler
 import skul9x.example.makesound.storage.AudioStorageManager
 import skul9x.example.makesound.storage.ShareHelper
 import skul9x.example.makesound.telemetry.StudioLogger
+import skul9x.example.makesound.engine.VoiceSampleManager
+import skul9x.example.makesound.player.VoicePlayerState
+import skul9x.example.makesound.player.VoiceSamplePlayer
 import java.io.File
 
 /**
@@ -38,6 +41,8 @@ import java.io.File
 open class MakeAiSoundViewModel(
     private val synthesizer: VieNeuStudioSynthesizer? = null,
     val playerManager: AudioPlayerManager = AudioPlayerManager(),
+    val voiceSampleManager: VoiceSampleManager = VoiceSampleManager(),
+    val voiceSamplePlayer: VoiceSamplePlayer = VoiceSamplePlayer(),
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
     customScope: kotlinx.coroutines.CoroutineScope? = null
 ) : ViewModel() {
@@ -47,7 +52,10 @@ open class MakeAiSoundViewModel(
     private val _uiState = MutableStateFlow(StudioUiState())
     val uiState: StateFlow<StudioUiState> = _uiState.asStateFlow()
 
+    val voicePlayerState: StateFlow<VoicePlayerState> = voiceSamplePlayer.playerState
+
     private var generationJob: Job? = null
+    private var previewJob: Job? = null
 
     init {
         // Collect reactive logs
@@ -204,6 +212,7 @@ open class MakeAiSoundViewModel(
     }
 
     fun onVoiceSelected(preset: VoicePreset) {
+        stopVoicePreview()
         _uiState.update {
             it.copy(
                 selectedVoice = preset,
@@ -241,7 +250,46 @@ open class MakeAiSoundViewModel(
     }
 
     fun showVoicePicker(show: Boolean) {
+        if (!show) {
+            stopVoicePreview()
+        }
         _uiState.update { it.copy(showVoicePicker = show) }
+    }
+
+    /**
+     * Toggles preview audio playback for a voice preset.
+     * If this voice is currently playing, halts playback.
+     * Otherwise, stops any active sample and plays the selected voice preview.
+     */
+    fun toggleVoicePreview(voice: VoicePreset) {
+        if (voiceSamplePlayer.isPlaying && voiceSamplePlayer.currentVoiceName == voice.name) {
+            stopVoicePreview()
+            return
+        }
+        previewJob?.cancel()
+        previewJob = scope.launch(ioDispatcher) {
+            try {
+                val bytes = voiceSampleManager.getOrResolveSample(voice.name)
+                voiceSamplePlayer.playVoiceBytes(
+                    voiceName = voice.name,
+                    wavBytes = bytes,
+                    cacheDir = voiceSampleManager.getDiskCacheDir()
+                )
+            } catch (e: CancellationException) {
+                // Ignore job cancellation
+            } catch (e: Throwable) {
+                StudioLogger.e(TAG, "Failed to preview voice ${voice.name}: ${e.message}", e)
+            }
+        }
+    }
+
+    /**
+     * Halts any active voice preview playback immediately.
+     */
+    fun stopVoicePreview() {
+        previewJob?.cancel()
+        previewJob = null
+        voiceSamplePlayer.stopVoiceSample()
     }
 
     fun showDiagnostics(show: Boolean) {
@@ -468,6 +516,8 @@ open class MakeAiSoundViewModel(
     override fun onCleared() {
         super.onCleared()
         generationJob?.cancel()
+        stopVoicePreview()
+        voiceSamplePlayer.release()
         playerManager.release()
         try {
             (synthesizer as? AutoCloseable)?.close()

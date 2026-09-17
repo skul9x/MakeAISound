@@ -35,10 +35,14 @@ class MainActivity : ComponentActivity() {
                     null
                 }
                 val playerManager = AudioPlayerManager()
+                val voiceSampleManager = skul9x.example.makesound.engine.VoiceSampleManager(applicationContext)
+                val voiceSamplePlayer = skul9x.example.makesound.player.VoiceSamplePlayer()
 
                 return MakeAiSoundViewModel(
                     synthesizer = synthesizer,
-                    playerManager = playerManager
+                    playerManager = playerManager,
+                    voiceSampleManager = voiceSampleManager,
+                    voiceSamplePlayer = voiceSamplePlayer
                 ) as T
             }
         }

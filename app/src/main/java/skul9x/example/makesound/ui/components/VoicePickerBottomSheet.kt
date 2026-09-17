@@ -35,6 +35,18 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.SheetState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Stop
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -65,6 +77,9 @@ fun VoicePickerBottomSheet(
     sheetState: SheetState,
     voices: List<VoicePreset>,
     selectedVoice: VoicePreset?,
+    previewVoiceName: String? = null,
+    isPreviewPlaying: Boolean = false,
+    onTogglePreview: (VoicePreset) -> Unit = {},
     selectedRegionFilter: RegionFilter = RegionFilter.ALL,
     selectedGenderFilter: GenderFilter = GenderFilter.ALL,
     selectedStyleFilter: StyleFilter = StyleFilter.ALL,
@@ -361,10 +376,13 @@ fun VoicePickerBottomSheet(
                 } else {
                     items(voices, key = { it.name }) { voice ->
                         val isSelected = voice.name == selectedVoice?.name
+                        val isItemPreviewPlaying = isPreviewPlaying && voice.name == previewVoiceName
                         VoicePickerItem(
                             voice = voice,
                             isSelected = isSelected,
-                            onSelect = { onVoiceSelected(voice) }
+                            isPreviewPlaying = isItemPreviewPlaying,
+                            onSelect = { onVoiceSelected(voice) },
+                            onTogglePreview = { onTogglePreview(voice) }
                         )
                     }
                 }
@@ -377,10 +395,40 @@ fun VoicePickerBottomSheet(
 fun VoicePickerItem(
     voice: VoicePreset,
     isSelected: Boolean,
-    onSelect: () -> Unit
+    isPreviewPlaying: Boolean = false,
+    onSelect: () -> Unit,
+    onTogglePreview: () -> Unit = {}
 ) {
     val borderColor = if (isSelected) ElectricCyan else SurfaceBorder
     val bgColor = if (isSelected) SurfaceElevated else SurfaceCard
+
+    val infiniteTransition = rememberInfiniteTransition(label = "pulseTransition")
+    val pulseScale by if (isPreviewPlaying) {
+        infiniteTransition.animateFloat(
+            initialValue = 1.0f,
+            targetValue = 1.1f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(600, easing = FastOutSlowInEasing),
+                repeatMode = RepeatMode.Reverse
+            ),
+            label = "pulseScale"
+        )
+    } else {
+        remember { mutableFloatStateOf(1.0f) }
+    }
+    val pulseAlpha by if (isPreviewPlaying) {
+        infiniteTransition.animateFloat(
+            initialValue = 0.7f,
+            targetValue = 1.0f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(600, easing = FastOutSlowInEasing),
+                repeatMode = RepeatMode.Reverse
+            ),
+            label = "pulseAlpha"
+        )
+    } else {
+        remember { mutableFloatStateOf(1.0f) }
+    }
 
     Box(
         modifier = Modifier
@@ -472,13 +520,47 @@ fun VoicePickerItem(
                 }
             }
 
-            if (isSelected) {
-                Icon(
-                    imageVector = Icons.Default.CheckCircle,
-                    contentDescription = "Đang chọn",
-                    tint = ElectricCyan,
-                    modifier = Modifier.size(24.dp)
-                )
+            Spacer(modifier = Modifier.width(8.dp))
+
+            // Action area: Audition preview button + Selection indicator
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                // Dedicated circular preview button
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .scale(pulseScale)
+                        .clip(CircleShape)
+                        .background(
+                            if (isPreviewPlaying) ElectricCyan.copy(alpha = 0.25f * pulseAlpha)
+                            else SurfaceElevated
+                        )
+                        .border(
+                            width = if (isPreviewPlaying) 1.5.dp else 1.dp,
+                            color = if (isPreviewPlaying) ElectricCyan.copy(alpha = pulseAlpha) else SurfaceBorder,
+                            shape = CircleShape
+                        )
+                        .clickable { onTogglePreview() },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = if (isPreviewPlaying) Icons.Default.Stop else Icons.Default.PlayArrow,
+                        contentDescription = if (isPreviewPlaying) "Dừng nghe thử" else "Nghe thử",
+                        tint = if (isPreviewPlaying) ElectricCyan else TextSecondary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+
+                if (isSelected) {
+                    Icon(
+                        imageVector = Icons.Default.CheckCircle,
+                        contentDescription = "Đang chọn",
+                        tint = ElectricCyan,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
             }
         }
     }
